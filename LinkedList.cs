@@ -31,8 +31,8 @@ namespace LL_CS
         public LinkedList()
         {
             head = null;
-            current = head;
-            tail = head;
+            current = null;
+            tail = null;
         }
 
         public LinkedListNode this[int index]
@@ -105,11 +105,7 @@ namespace LL_CS
 
         public void AddHead(object aObj)
         {
-            LinkedListNode node = head;
-
-            head = new LinkedListNode(aObj);
-
-            head.next = node;
+            _insertNext(null, aObj);
 
             if (head.next == null)
                 current = tail = head;
@@ -122,8 +118,10 @@ namespace LL_CS
 
             if (current == head)
                 current = head.next;
+            if (tail == head)
+                tail = null;
 
-            head = head.next; // Memory leak? Are all objects in C# refcounted?
+            head = head.next;
 
             if (head == null)
                 return null;
@@ -175,7 +173,13 @@ namespace LL_CS
         {
             LinkedListNode node = head;
 
-            while (node.next != null && aCmp.Compare(aObject, node.next) == 0)
+            if (node == null)
+                return null;
+
+            if (aCmp.Compare(node.data, aObject) == 0)
+                return null;
+
+            while (node.next != null && aCmp.Compare(aObject, node.next.data) == 0)
             {
                 node = node.next;
             };
@@ -183,30 +187,47 @@ namespace LL_CS
             return node;
         }
 
-        public object Find(object aTestObject, IComparer aCmp)
+        private LinkedListNode _find(object aTestObject, IComparer aCmp)
         {
+            if (head == null)
+                return null;
+
             LinkedListNode node = head;
 
-            do {
+            do
+            {
                 node = node.next;
-            } while (node != null && aCmp.Compare(aTestObject, node) == 0);
+            } while (node != null && aCmp.Compare(aTestObject, node.data) == 0);
 
-            return node.data;
+            return node;
         }
 
-        private object _removeNext(LinkedListNode aPrev)
+        public object Find(object aTestObject, IComparer aCmp)
         {
+            LinkedListNode node = _find(aTestObject, aCmp);
+            return node == null ? null : node.data;
+        }
+
+        private LinkedListNode _removeNext(LinkedListNode aPrev) //update Members!
+        {
+            LinkedListNode ret;
             if (aPrev == null)
+            {
+                if (head == null)
+                    throw new IndexOutOfRangeException();
+                ret = head;
+                head = head.next;
+                return ret;
+            }
+
+            if (aPrev.next == null)
                 throw new IndexOutOfRangeException();
 
-            if ( aPrev.next == null)
-                throw new IndexOutOfRangeException();
+            ret = aPrev.next;
 
-            LinkedListNode ret = aPrev.next;
+            aPrev.next = aPrev.next.next;
 
-            aPrev.next = ret.next;
-
-            return ret.data;
+            return ret;
         }
 
         public object Remove(object aObj)
@@ -217,8 +238,7 @@ namespace LL_CS
                 return RemoveHead();
 
             LinkedListNode previous = _findPrevious(aObj, Comparer<object>.Default);
-            LinkedListNode deleted = previous.next;
-            _removeNext(previous);
+            LinkedListNode deleted = _removeNext(previous);
             return deleted.data;
         }
 
@@ -228,12 +248,46 @@ namespace LL_CS
                 throw new IndexOutOfRangeException();
             if (aIdx == 0)
                 return RemoveHead();
-            return _removeNext(this[aIdx-1]);
+            return _removeNext(this[aIdx-1]).data;
+        }
+
+        private void _insertNext(LinkedListNode aPrev, object aObj) //update Members!
+        {
+            LinkedListNode node = new LinkedListNode(aObj);
+            if (aPrev == null)
+            {
+                node.next = head;
+                head = node;
+                return;
+            }
+
+            node.next = aPrev.next;
+            aPrev.next = node;
         }
 
         public void InsertSorted(object aObj, IComparer aCmp)
         {
-            throw new NotImplementedException();
+            if (aObj == null) 
+                throw new IndexOutOfRangeException();
+            if (head == null)
+                AddHead(aObj);
+
+            if (head.next == null)
+                InsertAtPos(aObj, aCmp.Compare(head.next.data, aObj) > 0 ? 0 : 1);
+
+            LinkedListNode node = head;
+
+            while (node.next != null)
+            {
+                if (aCmp.Compare(node.next.data, aObj) > 0)
+                {
+                    _insertNext(node, aObj);
+                    return;
+                }
+
+                node = node.next;
+            }
+
         }
 
         public void InsertAtPos(object aObj, int aPos)
